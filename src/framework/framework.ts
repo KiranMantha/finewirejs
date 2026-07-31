@@ -36,3 +36,21 @@ export {
   type ComponentInstance,
   type AppHandle,
 } from './component.ts';
+export {
+  createRouter,
+  createBrowserHistory,
+  createMemoryHistory,
+  buildMatcher,
+  matchRoute,
+  type Router,
+  type RouterOptions,
+  type RouteDef,
+  type RouteContext,
+  type Page,
+  type History,
+} from './router.ts';
+export {
+  buildRoutes,
+  filePathToPattern,
+  type PageModule,
+} from './file-routes.ts';
