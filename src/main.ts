@@ -117,8 +117,8 @@ var App = defineComponent((_props, ctx) => {
       >
     </header>
 
-    ${AddForm({ onAdd: add }).nodes}
-    ${FilterBar({ filter, counts }).nodes}
+    ${AddForm({ onAdd: add })}
+    ${FilterBar({ filter, counts })}
 
     <ul class="list">
       ${For(
