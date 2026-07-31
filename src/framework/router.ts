@@ -57,12 +57,24 @@ import {
     const names: string[] = [];
     let re = '^';
     let score = 0;
+    let hasCatchAll = false;
     for (const s of segs) {
-      if (s.startsWith('*')) { names.push(s.slice(1) || 'rest'); re += '/(.*)'; score += 1; }
-      else if (s.startsWith(':')) { names.push(s.slice(1)); re += '/([^/]+)'; score += 2; }
-      else { re += '/' + escapeRe(s); score += 3; }
+      if (s.startsWith('*')) {
+        // Catch-all. Matches one-or-more segments here, PLUS optionally the
+        // bare parent (so /docs/*path also serves /docs, with path=""). A
+        // root-level catch-all (/*x) still won't match "/" because the index
+        // route outscores it and (.+) is required when a segment is present.
+        names.push(s.slice(1) || 'rest');
+        re += '(?:/(.+))?';
+        hasCatchAll = true;
+      }
+      else if (s.startsWith(':')) { names.push(s.slice(1)); re += '/([^/]+)'; score += 20; }
+      else { re += '/' + escapeRe(s); score += 30; }
     }
-    re += segs.length === 0 ? '/?$' : '/?$';
+    re += '/?$';
+    // A catch-all is always the least specific route — it must sort below the
+    // index route (score 0) and every static/dynamic route, so subtract.
+    if (hasCatchAll) score -= 1000;
     return { def, re: new RegExp(re), names, score };
   }
   
@@ -202,19 +214,30 @@ import {
           });
         });
   
-        // link interception
+        // link interception — listen on document so links ANYWHERE (nav bars,
+        // layouts, content) are caught, not just those inside the outlet.
         let unlisten: (() => void) | undefined;
         if (opts.interceptLinks !== false) {
-          const onClick = (e: Event) => {
+          const onClick = (e: MouseEvent) => {
+            // let the browser handle modified clicks (new tab, download, etc.)
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
             const a = (e.target as Element)?.closest?.('a');
             if (!a) return;
             const href = a.getAttribute('href') ?? '';
-            if (!href.startsWith('/') || a.hasAttribute('data-external')) return;
+            const target = a.getAttribute('target');
+            if (
+              !href.startsWith('/') ||            // external or hash-only
+              href.startsWith('//') ||            // protocol-relative external
+              (target && target !== '_self') ||   // opens elsewhere
+              a.hasAttribute('download') ||
+              a.hasAttribute('data-external')
+            ) return;
             e.preventDefault();
             navigate(href);
           };
-          container.addEventListener('click', onClick);
-          unlisten = () => container.removeEventListener('click', onClick);
+          const host = container.ownerDocument ?? document;
+          host.addEventListener('click', onClick as EventListener);
+          unlisten = () => host.removeEventListener('click', onClick as EventListener);
         }
   
         return {

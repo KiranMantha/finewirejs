@@ -23,6 +23,9 @@ body {
   align-items: center;
   padding: 44px 16px;
 }
+a {
+  color: var(--ink);
+}
 .wrap {
   width: 100%;
   max-width: 520px;

@@ -51,6 +51,7 @@ export {
 } from './router.ts';
 export {
   buildRoutes,
+  getNotFound,
   filePathToPattern,
   type PageModule,
 } from './file-routes.ts';
