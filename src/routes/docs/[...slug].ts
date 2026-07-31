@@ -7,6 +7,6 @@ export default (ctx: RouteContext) => {
 
   // every dynamic value in the template is wrapped in () => so it's reactive
   return html`
-    <p>${segments}</p>
+    <p>slug: ${slug}</p><p>segments: ${segments}</p>
   `;
 };
