@@ -158,13 +158,12 @@ export function Show(cond: () => unknown, render: () => TemplateResult | null): 
 export interface AppHandle { dispose(): void; }
 
 /** Mount a component (from defineComponent) into a container element. */
-export function mount<P>(Comp: Component<P>, props: P, container: Element): AppHandle {
-  const inst = Comp(props);
+export function mount(componentInstance: ComponentInstance, container: Element): AppHandle {
   container.textContent = '';
-  inst.nodes.forEach((n) => container.appendChild(n));
+  componentInstance.nodes.forEach((n) => container.appendChild(n));
   return {
     dispose() {
-      inst.dispose();
+      componentInstance.dispose();
       container.textContent = '';
     },
   };
