@@ -149,4 +149,4 @@ var App = defineComponent((_props, ctx) => {
   </section>`;
 });
 
-mount(App, {}, document.getElementById('root') as Element);
+mount(App(), document.getElementById('root') as Element);
