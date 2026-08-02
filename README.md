@@ -30,7 +30,7 @@ mount(Counter(), document.getElementById('root')!);
 
 Clicking `+1` updates the `<p>` — it does **not** re-run `Counter`. The body executes a single time to wire signals to nodes; after that, writes flow straight to the DOM.
 
-## Why finewire
+## Why Finewire
 
 - **No re-renders.** The component function runs once. State changes patch nodes directly, so the whole class of "why is this re-rendering?" problems — and the hooks that exist to tame them — simply don't apply.
 - **Fine-grained by default.** Only the exact hole that reads a changed signal updates. The rest of the DOM is untouched.
