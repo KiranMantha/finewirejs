@@ -22,6 +22,7 @@ const Shell = defineComponent<{ outlet: Element }>(
   ({ outlet }) => html`
   <nav>
     <a href="/">Home</a>
+    <a href="/me">Me</a>
     <a href="/users">Users</a>
     <a href="/about">About</a>
     <a href="/docs/guide">/docs/guide</a>
