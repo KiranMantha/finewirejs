@@ -20,10 +20,10 @@ import { instantiate, type TemplateResult } from './template';
 // -- types ------------------------------------------------------------------
 
 export interface Ctx {
-  /** Runs after the component's nodes exist. Return a fn to clean up. */
+  /** Runs after the component's nodes enter the DOM. Return a fn to tear down. */
   onMount(fn: () => void | (() => void)): void;
-  /** Runs when the component is disposed. */
-  onCleanup(fn: () => void): void;
+  /** Runs when the component is unmounted (its nodes are removed / disposed). */
+  onUnmount(fn: () => void): void;
 }
 
 export type Setup<P> = (props: P, ctx: Ctx) => TemplateResult;
@@ -55,7 +55,7 @@ export function defineComponent<P = {}>(setup: Setup<P>): Component<P> {
           const c = fn();
           if (typeof c === 'function') coreOnCleanup(c);
         }),
-      onCleanup: (fn) => coreOnCleanup(fn),
+      onUnmount: (fn) => coreOnCleanup(fn),
     };
 
     const { value, dispose } = createRoot(() => {
