@@ -28,9 +28,56 @@ import {
     path: () => string;
     /** The matched route's name (its pattern), stable for the page's lifetime. */
     name: string;
+    /** The matched route's meta (auth flags, roles, titles...). */
+    meta: RouteMeta;
     /** Programmatic navigation. */
     navigate: (to: string) => void;
   }
+
+  /** Arbitrary per-route metadata a route file exports alongside `default`. */
+  export interface RouteMeta {
+    requiresAuth?: boolean;
+    roles?: string[];
+    [key: string]: unknown;
+  }
+
+  /** What a guard sees about the route being entered. */
+  export interface GuardLocation {
+    path: string;
+    params: Record<string, string>;
+    query: Record<string, string>;
+    name: string | null;
+    meta: RouteMeta;
+  }
+
+  /** A guard's verdict: allow, or redirect (optionally replacing history). */
+  export type GuardResult = true | { redirect: string; replace?: boolean };
+
+  /**
+   * SYNC guard — `(auth)/guard.ts` exports this as `default`. Runs INSIDE the
+   * reactive effect on EVERY entry to a protected route (never cached), so it
+   * tracks the auth signals it reads and re-fires when they change (idle/logout
+   * redirect with no navigation). Cannot await — reads a resolved auth signal.
+   */
+  export type SyncGuard = (to: GuardLocation) => GuardResult;
+
+  /**
+   * ASYNC guard — `(auth)/guard.ts` exports this as `guardAsync`. Runs on the
+   * async path: a pending state (loading.ts) shows while it resolves, and its
+   * verdict is applied only if the navigation is still current (stale
+   * resolutions from abandoned navigations are dropped). Use when the decision
+   * genuinely requires awaiting per navigation. NOT reactive after the first
+   * `await` — read auth signals synchronously up front if you need tracking.
+   */
+  export type AsyncGuard = (to: GuardLocation) => Promise<GuardResult>;
+
+  /** Back-compat alias: the sync guard shape. */
+  export type BeforeEach = SyncGuard;
+
+  /** A guard resolved from a guard.ts module: exactly one mode. */
+  export type Guard =
+    | { mode: 'sync'; run: SyncGuard }
+    | { mode: 'async'; run: AsyncGuard };
   
   /** A route file's default export: a component or a plain setup function. */
   export type Page = Component<RouteContext> | Setup<RouteContext>;
@@ -39,6 +86,9 @@ import {
     pattern: string;            // '/users/:id'  (':name' dynamic, '*name' catch-all)
     name: string;               // usually === pattern
     page: Page;
+    meta?: RouteMeta;           // from the route file's `export const meta = {...}`
+    guard?: Guard;              // attached to routes inside (auth)/ by buildRoutes
+    loading?: Page;             // (auth)/loading.ts — shown while an async guard resolves
   }
   
   // -- matcher ----------------------------------------------------------------
@@ -190,27 +240,83 @@ import {
       mount(container) {
         let currentDef: RouteDef | null | undefined;
         let current: { nodes: Node[]; dispose(): void } | null = null;
-  
+        // Bumped on every guard evaluation. An async guard captures the value it
+        // saw; when its promise resolves, a mismatch means a newer navigation (or
+        // auth change) superseded it → the stale result is dropped.
+        let guardSeq = 0;
+
         const swap = createRoot(() => {
-          // This effect fires on every navigation, but only re-renders when the
-          // matched route FILE changes. Same-file param changes flow through the
-          // reactive params()/query() signals into the live page's holes.
           return effect(() => {
             const def = parsed().match?.def ?? null;
-            if (def === currentDef) return;
-            currentDef = def;
-            current?.dispose();
-            container.textContent = '';
-  
-            const comp = def ? asComponent(def.page) : notFound;
-            if (!comp) return; // silent blank on unmatched with no notFound
-            const ctx: RouteContext = {
-              params, query, path,
-              name: def?.name ?? '(not found)',
-              navigate,
+            const token = ++guardSeq; // this evaluation's identity
+
+            // Render the matched route (no-op if the route file didn't change).
+            const renderDef = () => {
+              if (def === currentDef) return;
+              currentDef = def;
+              current?.dispose();
+              container.textContent = '';
+              const comp = def ? asComponent(def.page) : notFound;
+              if (!comp) return;
+              const ctx: RouteContext = {
+                params, query, path,
+                name: def?.name ?? '(not found)',
+                meta: def?.meta ?? {},
+                navigate,
+              };
+              current = comp(ctx);
+              current.nodes.forEach((n) => container.appendChild(n));
             };
-            current = comp(ctx);
-            current.nodes.forEach((n) => container.appendChild(n));
+
+            const applyRedirect = (r: { redirect: string; replace?: boolean }) => {
+              const target = r.redirect;
+              if (target === path()) return;                 // already there → no loop
+              (r.replace ?? true) ? history.replace(target) : history.push(target);
+            };
+
+            // Show the loading.ts pending view (async mode only), replacing the
+            // current content until the guard resolves.
+            const showPending = () => {
+              currentDef = null;                             // force a fresh render after resolve
+              current?.dispose();
+              container.textContent = '';
+              const comp = def?.loading ? asComponent(def.loading) : null;
+              if (!comp) return;
+              current = comp({ params, query, path, name: def?.name ?? '', meta: def?.meta ?? {}, navigate });
+              current.nodes.forEach((n) => container.appendChild(n));
+            };
+
+            // 1. guard — a route inside (auth)/ carries a resolved, single-mode
+            //    guard descriptor. The MODE is declared (which export guard.ts
+            //    used), never sniffed — so behaviour is fully predictable.
+            const guard = def?.guard;
+            const to: GuardLocation = {
+              path: path(),
+              params: params(),
+              query: query(),
+              name: def?.name ?? null,
+              meta: def?.meta ?? {},
+            };
+
+            if (guard?.mode === 'sync') {
+              // Runs inside this effect → reads of auth signals are tracked, so
+              // logout/idle re-fires the guard. Never cached.
+              const verdict = guard.run(to);
+              if (verdict !== true) { applyRedirect(verdict); return; }
+            } else if (guard?.mode === 'async') {
+              // Out-of-band: show loading.ts, await, and apply the verdict only
+              // if this evaluation is still current (drop stale resolutions).
+              showPending();
+              guard.run(to).then((resolved) => {
+                if (token !== guardSeq) return;              // superseded → drop
+                if (resolved === true) renderDef();
+                else applyRedirect(resolved);
+              });
+              return; // the .then finishes the job
+            }
+
+            // 2. allowed (public or sync-allowed) → render
+            renderDef();
           });
         });
   
