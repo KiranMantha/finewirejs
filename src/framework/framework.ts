@@ -42,6 +42,8 @@ export {
   createMemoryHistory,
   buildMatcher,
   matchRoute,
+  type GuardLocation,
+  type GuardResult,
   type Router,
   type RouterOptions,
   type RouteDef,

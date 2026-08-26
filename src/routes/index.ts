@@ -1,23 +1,24 @@
 import {
-    computed,
-    defineComponent,
-    For,
-    html,
-    mount,
-    Show,
-    signal
+  computed,
+  defineComponent,
+  For,
+  html,
+  Show,
+  signal,
+  type WritableSignal,
+  type ReadonlySignal
 } from '../framework';
 
 var seq = 1;
-var makeTask = (title, tag) => ({
-    id: seq++,
-    title,
-    tag,
-    done: signal(false),
+var makeTask = (title: string, tag: string) => ({
+  id: seq++,
+  title,
+  tag,
+  done: signal(false),
 });
 
-var TaskRow = defineComponent(({ task, onRemove }) => {
-    return html`<li class=${() => (task.done() ? 'row done' : 'row')}>
+var TaskRow = defineComponent(({ task, onRemove }: { task: unknown; onRemove: (id: number) => void }) => {
+  return html`<li class=${() => (task.done() ? 'row done' : 'row')}>
     <input
       type="checkbox"
       checked=${() => task.done()}
@@ -29,41 +30,41 @@ var TaskRow = defineComponent(({ task, onRemove }) => {
   </li>`;
 });
 
-var FilterBar = defineComponent(({ filter, counts }) => {
-    const chip = (id, label) => html`<button
+var FilterBar = defineComponent(({ filter, counts }: { filter: WritableSignal<string>; counts: ReadonlySignal<{ all: number; done: number; active: number; }> }) => {
+  const chip = (id: string, label: string) => html`<button
     class=${() => (filter() === id ? 'chip active' : 'chip')}
     onclick=${() => filter.set(id)}
   >
-    ${label} <b>${() => counts()[id]}</b>
+    ${label} <b>${() => counts()[id as keyof { all: number; done: number; active: number; }]}</b>
   </button>`;
-    return html`<div class="chips">
+  return html`<div class="chips">
     ${() => chip('all', 'All')} ${() => chip('active', 'Active')}
     ${() => chip('done', 'Done')}
   </div>`;
 });
 
-var AddForm = defineComponent(({ onAdd }) => {
-    const title = signal('');
-    const tag = signal('general');
-    const valid = computed(() => title().trim().length > 0);
-    const submit = () => {
-        if (!valid()) return;
-        onAdd(title().trim(), tag());
-        title.set('');
-    };
-    return html`<div class="add">
+var AddForm = defineComponent(({ onAdd }: { onAdd: (title: string, tag: string) => void }) => {
+  const title = signal('');
+  const tag = signal('general');
+  const valid = computed(() => title().trim().length > 0);
+  const submit = () => {
+    if (!valid()) return;
+    onAdd(title().trim(), tag());
+    title.set('');
+  };
+  return html`<div class="add">
     <input
       class="grow"
       placeholder="add a task…"
       value=${() => title()}
-      oninput=${(e) => title.set(e.target.value)}
-      onkeydown=${(e) => {
-            if (e.key === 'Enter') submit();
-        }}
+      oninput=${(e: Event) => title.set(e.target.value)}
+      onkeydown=${(e: KeyboardEvent) => {
+      if (e.key === 'Enter') submit();
+    }}
     />
     <select
       value=${() => tag()}
-      onchange=${(e) => tag.set(e.target.value)}
+      onchange=${(e: Event) => tag.set(e.target.value)}
     >
       <option value="general">general</option>
       <option value="work">work</option>
@@ -82,33 +83,33 @@ var AddForm = defineComponent(({ onAdd }) => {
 var appSetupRuns = 0;
 
 var App = defineComponent((_props, ctx) => {
-    appSetupRuns++;
-    const tasks = signal([
-        makeTask('read the signals core', 'work'),
-        makeTask('wire template holes to effects', 'work'),
-        makeTask('water the plants', 'home'),
-    ]);
-    tasks()[0].done.set(true);
-    const filter = signal('all');
-    const counts = computed(() => {
-        const list = tasks();
-        const done = list.filter((t) => t.done()).length;
-        return { all: list.length, done, active: list.length - done };
-    });
-    const visible = computed(() => {
-        const f = filter();
-        return tasks().filter((t) =>
-            f === 'all' ? true : f === 'done' ? t.done() : !t.done()
-        );
-    });
-    const add = (title, tag) => tasks.set([...tasks(), makeTask(title, tag)]);
-    const remove = (id) => tasks.set(tasks().filter((t) => t.id !== id));
-    const clearDone = () => tasks.set(tasks().filter((t) => !t.done()));
-    ctx.onMount(() => {
-        const t = setInterval(() => { }, 6e4);
-        return () => clearInterval(t);
-    });
-    return html`<section class="app">
+  appSetupRuns++;
+  const tasks = signal([
+    makeTask('read the signals core', 'work'),
+    makeTask('wire template holes to effects', 'work'),
+    makeTask('water the plants', 'home'),
+  ]);
+  tasks()[0].done.set(true);
+  const filter = signal('all');
+  const counts = computed(() => {
+    const list = tasks();
+    const done = list.filter((t) => t.done()).length;
+    return { all: list.length, done, active: list.length - done };
+  });
+  const visible = computed(() => {
+    const f = filter();
+    return tasks().filter((t) =>
+      f === 'all' ? true : f === 'done' ? t.done() : !t.done()
+    );
+  });
+  const add = (title: string, tag: string) => tasks.set([...tasks(), makeTask(title, tag)]);
+  const remove = (id: number) => tasks.set(tasks().filter((t) => t.id !== id));
+  const clearDone = () => tasks.set(tasks().filter((t) => !t.done()));
+  ctx.onMount(() => {
+    const t = setInterval(() => { }, 6e4);
+    return () => clearInterval(t);
+  });
+  return html`<section class="app">
     <header>
       <h1>Tasks</h1>
       <span class="sub"
@@ -122,16 +123,16 @@ var App = defineComponent((_props, ctx) => {
 
     <ul class="list">
       ${For(
-        visible,
-        (t) => t.id,
-        (t) => TaskRow({ task: t, onRemove: remove })
-    )}
+    visible,
+    (t) => t.id,
+    (t) => TaskRow({ task: t, onRemove: remove })
+  )}
     </ul>
 
     ${Show(
-        () => visible().length === 0,
-        () => html`<p class="empty">nothing here</p>`
-    )}
+    () => visible().length === 0,
+    () => html`<p class="empty">nothing here</p>`
+  )}
 
     <footer>
       <button
@@ -150,7 +151,7 @@ var App = defineComponent((_props, ctx) => {
 });
 
 export default () => {
-    return html`
+  return html`
     <h1>Home Route</h1>
     ${App()}
   `;

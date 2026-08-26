@@ -1,5 +1,5 @@
-import { html, type RouteContext } from '../../framework';
+import { html } from '../../framework';
 
-export default (ctx: RouteContext) => {
+export default () => {
     return html`<p>Myself Page</p>`;
 }

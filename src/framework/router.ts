@@ -19,7 +19,7 @@ import {
   
   // -- route context passed to every page ------------------------------------
   
-  export interface RouteContext {
+  export type RouteContext = {
     /** Reactive path params, e.g. { id: '42' } for /users/:id. */
     params: () => Record<string, string>;
     /** Reactive query params, e.g. { tab: 'posts' } for ?tab=posts. */
@@ -35,14 +35,14 @@ import {
   }
 
   /** Arbitrary per-route metadata a route file exports alongside `default`. */
-  export interface RouteMeta {
+  export type RouteMeta = {
     requiresAuth?: boolean;
     roles?: string[];
     [key: string]: unknown;
   }
 
   /** What a guard sees about the route being entered. */
-  export interface GuardLocation {
+  export type GuardLocation = {
     path: string;
     params: Record<string, string>;
     query: Record<string, string>;
@@ -82,7 +82,7 @@ import {
   /** A route file's default export: a component or a plain setup function. */
   export type Page = Component<RouteContext> | Setup<RouteContext>;
   
-  export interface RouteDef {
+  export type RouteDef = {
     pattern: string;            // '/users/:id'  (':name' dynamic, '*name' catch-all)
     name: string;               // usually === pattern
     page: Page;
@@ -93,7 +93,7 @@ import {
   
   // -- matcher ----------------------------------------------------------------
   
-  interface Compiled {
+  type Compiled = {
     def: RouteDef;
     re: RegExp;
     names: string[];
@@ -149,7 +149,7 @@ import {
   
   // -- history adapters -------------------------------------------------------
   
-  export interface History {
+  export type History = {
     current(): string;                       // "/path?query"
     push(to: string): void;
     replace(to: string): void;
@@ -182,7 +182,7 @@ import {
   
   // -- router -----------------------------------------------------------------
   
-  export interface RouterOptions {
+  export type RouterOptions = {
     history?: History;
     /** Rendered when nothing matches. */
     notFound?: Page;
@@ -190,7 +190,7 @@ import {
     interceptLinks?: boolean;
   }
   
-  export interface Router {
+  export type Router = {
     mount(container: Element): { dispose: () => void };
     navigate: (to: string) => void;
     /** Reactive accessors, also usable outside a page. */
